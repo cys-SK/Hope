@@ -1,50 +1,45 @@
 import { useState } from "react";
-import { Inflate } from "zlibjs/bin/inflate.min.js";
+import pako from "pako";
 
 export default function MindustryDecoder() {
   const [code, setCode] = useState("");
-  const [blocks, setBlocks] = useState(null);
+  const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  function decodeBlueprint(encoded) {
+  function decodeBlueprint(input) {
     try {
-      const base64 = encoded.replace(/^bXNjaA/, "");
-      const compressed = atob(base64);
-      const binary = new Uint8Array(compressed.length);
-      for (let i = 0; i < compressed.length; i++) {
-        binary[i] = compressed.charCodeAt(i);
-      }
-      const decompressed = new Inflate(binary).decompress();
-      const text = new TextDecoder().decode(decompressed);
-      return JSON.parse(text);
-    } catch (err) {
-      console.error(err);
-      setError("디코딩 실패: 유효한 Mindustry 설계도 코드인지 확인해주세요.");
+      const base64 = input.replace(/^bXNjaA/, "");
+      const compressed = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const decompressed = pako.inflate(compressed, { to: "string" });
+      return JSON.parse(decompressed);
+    } catch (e) {
+      console.error(e);
+      setError("디코딩 실패: 올바른 설계도 코드인지 확인해주세요.");
       return null;
     }
   }
 
-  const handleDecode = () => {
+  const handleClick = () => {
     setError(null);
-    const result = decodeBlueprint(code);
-    if (result) setBlocks(result);
+    const output = decodeBlueprint(code);
+    if (output) setResult(output);
   };
 
   return (
     <div style={{ padding: 20 }}>
       <h1>Mindustry 설계도 디코더</h1>
-      <input
-        type="text"
-        placeholder="bXN... 로 시작하는 설계도 코드 입력"
+      <textarea
+        rows={5}
+        style={{ width: "100%", marginBottom: 10 }}
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        style={{ width: "100%", marginBottom: 10 }}
+        placeholder="bXN... 로 시작하는 설계도 코드 입력"
       />
-      <button onClick={handleDecode}>디코드</button>
+      <button onClick={handleClick}>디코드</button>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      {blocks && (
+      {result && (
         <pre style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>
-          {JSON.stringify(blocks, null, 2)}
+          {JSON.stringify(result, null, 2)}
         </pre>
       )}
     </div>
